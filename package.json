@@ -1,0 +1,7 @@
+{
+  "name": "berry-ui",
+  "private": true,
+  "dependencies": {
+    "node-edge-tts": "1.2.12"
+  }
+}

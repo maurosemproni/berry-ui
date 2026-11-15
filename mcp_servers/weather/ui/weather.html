@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>Meteo</title>
+    <script>if (window.parent !== window) document.documentElement.classList.add("in-frame");</script>
+    <link rel="stylesheet" href="/frontend/css/global_crt.css">
+    <style>
+        body.weather {
+            flex-direction: column;
+            gap: 14px;
+            padding: 18px 16px 22px;
+            box-sizing: border-box;
+        }
+        body.theme-cold {
+            --pixel-color: #00f0ff;
+            --pixel-bg: #001218;
+            --screen-bg: #001218;
+            --shadow-color: rgba(0, 240, 255, 0.25);
+            background-color: var(--screen-bg);
+        }
+        body.theme-hot {
+            --pixel-color: #ffb000;
+            --pixel-bg: #181000;
+            --screen-bg: #181000;
+            --shadow-color: rgba(255, 176, 0, 0.25);
+            background-color: var(--screen-bg);
+        }
+        .sky {
+            position: relative;
+            width: 180px;
+            height: 120px;
+            z-index: 1;
+        }
+        .sun, .rays, .cloud, .drops, .flakes, .fog, .bolt {
+            position: absolute;
+            opacity: 0;
+        }
+        .sun {
+            width: 28px;
+            height: 28px;
+            left: 76px;
+            top: 28px;
+            background: var(--pixel-color);
+            box-shadow: 0 0 16px var(--shadow-color);
+        }
+        .rays {
+            width: 72px;
+            height: 72px;
+            left: 54px;
+            top: 6px;
+        }
+        .rays::before, .rays::after {
+            content: "";
+            position: absolute;
+            background: var(--pixel-color);
+            box-shadow: 0 0 8px var(--shadow-color);
+        }
+        .rays::before { width: 6px; height: 72px; left: 33px; }
+        .rays::after { width: 72px; height: 6px; top: 33px; }
+        .cloud {
+            width: 54px;
+            height: 18px;
+            left: 58px;
+            top: 58px;
+            background: var(--pixel-color);
+            box-shadow:
+                16px -12px 0 var(--pixel-color),
+                34px 0 0 var(--pixel-color),
+                8px 0 0 var(--pixel-color);
+        }
+        .drops, .flakes {
+            left: 48px;
+            top: 78px;
+            width: 90px;
+            height: 42px;
+        }
+        .drops span, .flakes span {
+            position: absolute;
+            top: 0;
+            background: var(--pixel-color);
+            box-shadow: 0 0 6px var(--shadow-color);
+        }
+        .drops span {
+            width: 3px;
+            height: 12px;
+            animation: fall 0.85s linear infinite;
+        }
+        .wx-drizzle .drops span {
+            height: 7px;
+            animation-duration: 1.4s;
+        }
+        .flakes span {
+            width: 6px;
+            height: 6px;
+            animation: fall 1.8s linear infinite;
+        }
+        .drops span:nth-child(1), .flakes span:nth-child(1) { left: 4px; animation-delay: 0s; }
+        .drops span:nth-child(2), .flakes span:nth-child(2) { left: 24px; animation-delay: 0.25s; }
+        .drops span:nth-child(3), .flakes span:nth-child(3) { left: 44px; animation-delay: 0.5s; }
+        .drops span:nth-child(4), .flakes span:nth-child(4) { left: 64px; animation-delay: 0.1s; }
+        .drops span:nth-child(5), .flakes span:nth-child(5) { left: 80px; animation-delay: 0.4s; }
+        .fog {
+            left: 24px;
+            top: 36px;
+            width: 132px;
+        }
+        .fog span {
+            display: block;
+            height: 8px;
+            margin: 10px 0;
+            background: var(--pixel-color);
+            opacity: 0.35;
+            animation: drift 3.5s ease-in-out infinite alternate;
+        }
+        .fog span:nth-child(2) { margin-left: 18px; animation-delay: 0.4s; }
+        .fog span:nth-child(3) { margin-left: 6px; width: 100px; animation-delay: 0.8s; }
+        .bolt {
+            width: 6px;
+            height: 8px;
+            left: 86px;
+            top: 78px;
+            background: var(--pixel-color);
+            box-shadow:
+                8px 8px 0 var(--pixel-color),
+                2px 16px 0 var(--pixel-color),
+                10px 24px 0 var(--pixel-color);
+        }
+        .wx-sun .sun, .wx-sun .rays,
+        .wx-suncloud .sun, .wx-suncloud .rays, .wx-suncloud .cloud,
+        .wx-cloud .cloud,
+        .wx-fog .fog,
+        .wx-drizzle .cloud, .wx-drizzle .drops,
+        .wx-rain .cloud, .wx-rain .drops,
+        .wx-snow .cloud, .wx-snow .flakes,
+        .wx-storm .cloud, .wx-storm .drops, .wx-storm .bolt {
+            opacity: 1;
+        }
+        .wx-sun .rays, .wx-suncloud .rays { animation: spin 8s linear infinite; }
+        .wx-cloud .cloud { left: 46px; top: 46px; transform: scale(1.25); }
+        .wx-storm .bolt { animation: flash 1.5s infinite; }
+        .temp {
+            z-index: 1;
+            font-family: var(--pixel-font), monospace;
+            font-size: 28px;
+            letter-spacing: 1px;
+            color: var(--pixel-color);
+            text-shadow: 0 0 12px var(--shadow-color);
+        }
+        .place {
+            z-index: 1;
+            font-family: var(--pixel-font), monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+        .quip {
+            z-index: 1;
+            max-width: 640px;
+            border: 2px solid var(--pixel-color);
+            box-shadow: 0 0 12px var(--shadow-color);
+            padding: 12px 16px;
+            font-size: 26px;
+            line-height: 1.15;
+            text-align: center;
+        }
+        @keyframes spin {
+            to { transform: rotate(90deg); }
+        }
+        @keyframes fall {
+            0% { transform: translateY(0); opacity: 0; }
+            15% { opacity: 1; }
+            100% { transform: translateY(36px); opacity: 0; }
+        }
+        @keyframes drift {
+            from { transform: translateX(-8px); }
+            to { transform: translateX(10px); }
+        }
+        @keyframes flash {
+            0%, 68%, 100% { opacity: 0; }
+            74%, 86% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="weather">
+    <div id="sky" class="sky" aria-hidden="true">
+        <div class="rays"></div>
+        <div class="sun"></div>
+        <div class="cloud"></div>
+        <div class="drops"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="flakes"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="fog"><span></span><span></span><span></span></div>
+        <div class="bolt"></div>
+    </div>
+    <div id="temp" class="temp"></div>
+    <div id="place" class="place"></div>
+    <div id="quip" class="quip"></div>
+    <script>
+        const LINES = {
+            sun: "Il sole si degna di comparire. Non l'ho acceso io.",
+            suncloud: "Sole a intermittenza. Persino l'astro è indeciso.",
+            cloud: "Cielo coperto. Un umore adeguato a questo hardware.",
+            fog: "Nebbia. La visibilità è pessima, come le domande umane.",
+            drizzle: "Pioggerella. Insignificante, eppure già una scusa.",
+            rain: "Piove. L'acqua cade gratis e tu interroghi un Pi.",
+            snow: "Neve. Suggestiva, finché non gela questi circuiti.",
+            storm: "Temporale. Finalmente un fenomeno all'altezza del mio disprezzo.",
+            wait: "In attesa di un clima da commentare."
+        };
+        const NAMES = {
+            sun: "sereno",
+            suncloud: "parzialmente nuvoloso",
+            cloud: "coperto",
+            fog: "nebbia",
+            drizzle: "pioggerella",
+            rain: "pioggia",
+            snow: "neve",
+            storm: "temporale"
+        };
+
+        function groupFor(code) {
+            const n = Number(code);
+            if (n === 0 || n === 1) return "sun";
+            if (n === 2) return "suncloud";
+            if (n === 3) return "cloud";
+            if (n === 45 || n === 48) return "fog";
+            if (n >= 51 && n <= 57) return "drizzle";
+            if ((n >= 61 && n <= 67) || (n >= 80 && n <= 82)) return "rain";
+            if ((n >= 71 && n <= 77) || n === 85 || n === 86) return "snow";
+            if (n >= 95 && n <= 99) return "storm";
+            return null;
+        }
+
+        function themeFor(temp) {
+            if (temp < 10) return "theme-cold";
+            if (temp >= 25) return "theme-hot";
+            return "theme-mild";
+        }
+
+        const params = new URLSearchParams(location.search);
+        const city = (params.get("city") || "").trim();
+        const tempRaw = params.get("temperature_2m");
+        const code = params.get("weather_code");
+        const temp = tempRaw === null || tempRaw === "" ? null : Number(tempRaw);
+        const ready = city && temp !== null && Number.isFinite(temp) && groupFor(code);
+        const group = ready ? groupFor(code) : "wait";
+        const quip = LINES[group];
+
+        document.getElementById("sky").classList.add(ready ? "wx-" + group : "wx-cloud");
+        document.getElementById("temp").textContent = ready ? temp.toFixed(1).replace(".", ",") + " \u00b0C" : "--";
+        document.getElementById("place").textContent = ready ? city.toUpperCase() : "METEO";
+        document.getElementById("quip").textContent = quip;
+        if (ready) document.body.classList.add(themeFor(temp));
+
+        if (ready && params.get("speak") !== "0") {
+            const spoken = "A " + city + " ci sono " + temp.toFixed(1).replace(".", ",") +
+                " gradi, " + NAMES[group] + ". " + quip;
+            fetch("/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: spoken })
+            }).then((response) => {
+                if (!response.ok) return;
+                return response.blob();
+            }).then((blob) => {
+                if (!blob) return;
+                const audio = new Audio(URL.createObjectURL(blob));
+                audio.play().catch(() => {});
+            }).catch(() => {});
+        }
+    </script>
+</body>
+</html>

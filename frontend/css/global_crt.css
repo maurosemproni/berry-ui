@@ -1,0 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
+
+:root {
+    --pixel-color: #55ff55;
+    --pixel-bg: #0d160d;
+    --shadow-color: rgba(85, 255, 85, 0.25);
+    --screen-bg: #0b0f19;
+    --crt-font: "VT323", monospace;
+    --pixel-font: "Press Start 2P", monospace;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    background-color: var(--screen-bg);
+    color: var(--pixel-color);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    font-family: var(--crt-font);
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image:
+        linear-gradient(to right, var(--pixel-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--pixel-color) 1px, transparent 1px);
+    background-size: 16px 16px, 16px 16px;
+    opacity: 0.11;
+    pointer-events: none;
+    z-index: 0;
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image:
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+        radial-gradient(ellipse at center, rgba(11, 15, 25, 0) 46%, rgba(0, 0, 0, 0.55) 100%);
+    background-size: 100% 4px, auto;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+html.in-frame body::before,
+html.in-frame body::after {
+    display: none;
+}
+
+.pixel-art {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}

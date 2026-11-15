@@ -1,0 +1,9 @@
+config.js
+wake-state.json
+weather-state.json
+wake/.venv/
+mcp_servers/weather/.venv/
+wake/models/
+node_modules/
+__pycache__/
+.cursor/

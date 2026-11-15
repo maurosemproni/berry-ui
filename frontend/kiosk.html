@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>Berry</title>
+    <link rel="stylesheet" href="/frontend/css/global_crt.css">
+    <style>
+        #view-frame,
+        #weather-frame {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: transparent;
+        }
+        #view-frame { z-index: 1; }
+        #weather-frame { z-index: 3; }
+        #weather-frame[hidden] { display: none; }
+        body::before {
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <iframe id="view-frame" src="/frontend/views/berry_face.html" title="Berry"></iframe>
+    <iframe id="weather-frame" title="Meteo" hidden></iframe>
+    <script>
+        const FACE_URL = "/frontend/views/berry_face.html";
+        const frame = document.getElementById("view-frame");
+        let returnTimer = null;
+
+        function switchView(url, duration = null) {
+            // #region agent log
+            fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'D',location:'kiosk.html:switchView',message:'cambio schermata',data:{url:String(url).slice(0,180),duration:duration},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+            if (returnTimer) {
+                clearTimeout(returnTimer);
+                returnTimer = null;
+            }
+            frame.src = url;
+            if (typeof duration === "number" && duration > 0) {
+                returnTimer = setTimeout(() => {
+                    returnTimer = null;
+                    frame.src = FACE_URL;
+                }, duration);
+            }
+        }
+
+        const weatherFrame = document.getElementById("weather-frame");
+        let weatherTimer = null;
+        function showWeather(url, duration = 14000) {
+            // #region agent log
+            fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',runId:'post-fix2',hypothesisId:'D',location:'kiosk.html:showWeather',message:'pagina meteo',data:{url:String(url).slice(0,180),duration:duration},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+            weatherFrame.hidden = false;
+            weatherFrame.src = url;
+            if (weatherTimer) clearTimeout(weatherTimer);
+            weatherTimer = setTimeout(() => {
+                weatherTimer = null;
+                weatherFrame.hidden = true;
+                weatherFrame.src = "about:blank";
+            }, duration);
+        }
+
+        let seenWeatherSeq = null;
+        let weatherReady = false;
+        function watchWeather() {
+            fetch("/weather-state.json?t=" + Date.now(), { cache: "no-store" })
+                .then((res) => res.ok ? res.json() : null)
+                .then((data) => {
+                    const seq = data && typeof data.seq === "number" ? data.seq : null;
+                    if (!weatherReady) {
+                        weatherReady = true;
+                        seenWeatherSeq = seq;
+                        return;
+                    }
+                    if (seq === null || seq === seenWeatherSeq) return;
+                    seenWeatherSeq = seq;
+                    const params = new URLSearchParams({
+                        city: String(data.city || ""),
+                        temperature_2m: String(data.temperature_2m),
+                        weather_code: String(data.weather_code)
+                    });
+                    // #region agent log
+                    fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',runId:'post-fix',hypothesisId:'D',location:'kiosk.html:watchWeather',message:'meteo nuovo',data:{seq:data.seq,city:data.city,temperature:data.temperature_2m,code:data.weather_code},timestamp:Date.now()})}).catch(()=>{});
+                    // #endregion
+                    params.set("speak", "0");
+                    showWeather("/mcp_servers/weather/ui/weather.html?" + params.toString(), 14000);
+                })
+                .catch(() => {});
+        }
+        setInterval(watchWeather, 500);
+        watchWeather();
+    </script>
+</body>
+</html>

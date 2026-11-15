@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>Berry</title>
+    <script>if (window.parent !== window) document.documentElement.classList.add("in-frame");</script>
+    <link rel="stylesheet" href="/frontend/css/global_crt.css">
+    <link rel="stylesheet" href="/frontend/css/berry_face.css?v=log1">
+</head>
+<body>
+    <div id="berry-face" class="face-container state-sleep pixel-art">
+        <div class="eyes-row">
+            <div class="eye">
+                <div class="blush left"></div>
+            </div>
+            <div class="eye">
+                <div class="blush right"></div>
+            </div>
+        </div>
+        <div class="mouth-container">
+            <div class="mouth"></div>
+            <div class="eq" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="zzz-container" aria-hidden="true">
+            <span class="zzz-letter">Z</span>
+            <span class="zzz-letter">Z</span>
+            <span class="zzz-letter">z</span>
+        </div>
+    </div>
+
+    <div class="retro-log" aria-live="polite">
+        <div id="log-status">[STATUS: SLEEP]</div>
+        <div id="log-input">
+            <span class="log-label">[INPUT_USER]: </span><span id="log-input-text"></span><span class="log-cursor">_</span>
+        </div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script src="/berry.js?v=log1"></script>
+</body>
+</html>
