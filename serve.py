@@ -63,37 +63,40 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(500, "sintesi vocale assente")
             return
 
-        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
-        tmp.close()
-        audio_path = Path(tmp.name)
-        try:
-            completed = subprocess.run(
-                [
-                    NODE,
-                    EDGE_TTS,
-                    "--text",
-                    text,
-                    "--filepath",
-                    str(audio_path),
-                    "--voice",
-                    "it-IT-DiegoNeural",
-                    "--lang",
-                    "it-IT",
-                    "--timeout",
-                    str(TTS_TIMEOUT_S * 1000),
-                ],
-                capture_output=True,
-                timeout=TTS_TIMEOUT_S + 5,
-                check=False,
-            )
-            audio = audio_path.read_bytes() if audio_path.is_file() else b""
-        except (OSError, subprocess.TimeoutExpired):
-            self.send_error(502, "sintesi non riuscita")
-            return
-        finally:
-            audio_path.unlink(missing_ok=True)
-
-        if completed.returncode != 0 or not audio:
+        audio = b""
+        completed = None
+        for _ in (1, 2):
+            tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+            tmp.close()
+            audio_path = Path(tmp.name)
+            try:
+                completed = subprocess.run(
+                    [
+                        NODE,
+                        EDGE_TTS,
+                        "--text",
+                        text,
+                        "--filepath",
+                        str(audio_path),
+                        "--voice",
+                        "it-IT-DiegoNeural",
+                        "--lang",
+                        "it-IT",
+                        "--timeout",
+                        str(TTS_TIMEOUT_S * 1000),
+                    ],
+                    timeout=TTS_TIMEOUT_S + 5,
+                    check=False,
+                )
+                audio = audio_path.read_bytes() if audio_path.is_file() else b""
+            except (OSError, subprocess.TimeoutExpired):
+                completed = None
+                audio = b""
+            finally:
+                audio_path.unlink(missing_ok=True)
+            if completed is not None and completed.returncode == 0 and audio:
+                break
+        if completed is None or completed.returncode != 0 or not audio:
             self.send_error(502, "sintesi non riuscita")
             return
         self.send_response(200)

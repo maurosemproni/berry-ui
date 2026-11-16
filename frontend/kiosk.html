@@ -76,19 +76,22 @@
         }
 
         function openMcp(url, manifestUrl, duration) {
-            mcpOpen = true;
-            latchedCommand = "";
-            setLogInput("");
-            setLogStatus("SERVER MCP: WEATHER");
-            readJson(manifestUrl + "?t=" + Date.now()).then((data) => {
-                if (!mcpOpen) return;
-                const title = data && String(data.title || "").trim();
-                setLogStatus("SERVER MCP: " + (title || "WEATHER"));
-            });
-            pollMcpCommand();
             const weatherFrame = document.getElementById("weather-frame");
-            weatherFrame.hidden = false;
-            weatherFrame.src = url;
+            const already = mcpOpen && weatherFrame && !weatherFrame.hidden;
+            if (!already) {
+                mcpOpen = true;
+                latchedCommand = "";
+                setLogInput("");
+                setLogStatus("SERVER MCP: WEATHER");
+                readJson(manifestUrl + "?t=" + Date.now()).then((data) => {
+                    if (!mcpOpen) return;
+                    const title = data && String(data.title || "").trim();
+                    setLogStatus("SERVER MCP: " + (title || "WEATHER"));
+                });
+                pollMcpCommand();
+                weatherFrame.hidden = false;
+                weatherFrame.src = url;
+            }
             if (weatherTimer) clearTimeout(weatherTimer);
             weatherTimer = setTimeout(closeMcp, duration);
         }
