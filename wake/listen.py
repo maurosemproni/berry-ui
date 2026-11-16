@@ -112,8 +112,16 @@ def rms(pcm):
     return (total / count) ** 0.5
 
 
-def write_state(state):
-    payload = json.dumps({"state": state}) + "\n"
+_last_state = "idle"
+_last_command = ""
+
+
+def write_state(state, command=None):
+    global _last_state, _last_command
+    _last_state = state
+    if command is not None:
+        _last_command = command
+    payload = json.dumps({"state": _last_state, "command": _last_command}) + "\n"
     tmp = STATE_PATH.with_suffix(".json.tmp")
     tmp.write_text(payload, encoding="utf-8")
     os.replace(tmp, STATE_PATH)
@@ -435,6 +443,7 @@ def send_command(token, message):
     if not response.get("ok"):
         raise ConnectionError(f"chat.send rifiutato: {response.get('error') or response}")
     log(f"comando inviato: {message}")
+    write_state(_last_state, message)
     publish_weather(message)
 
 

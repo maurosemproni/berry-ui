@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>Prova meteo</title>
+    <link rel="stylesheet" href="/frontend/css/global_crt.css">
+    <style>
+        html, body.test-board {
+            height: auto;
+            min-height: 100%;
+        }
+        body.test-board {
+            display: block;
+        }
+        .case {
+            height: 100vh;
+            width: 100%;
+        }
+        .case iframe {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="test-board">
+    <script>
+        // Modifica questi casi e ricarica la pagina. speak=0 evita la voce.
+        const CASES = [
+            { city: "Roma", temperature_2m: 4, weather_code: 0 },
+            { city: "Roma", temperature_2m: 16, weather_code: 0 },
+            { city: "Roma", temperature_2m: 30, weather_code: 0 },
+            { city: "Roma", temperature_2m: 4, weather_code: 2 },
+            { city: "Roma", temperature_2m: 16, weather_code: 2 },
+            { city: "Roma", temperature_2m: 30, weather_code: 2 },
+            { city: "Roma", temperature_2m: 4, weather_code: 3 },
+            { city: "Roma", temperature_2m: 16, weather_code: 3 },
+            { city: "Roma", temperature_2m: 30, weather_code: 3 },
+            { city: "Roma", temperature_2m: 4, weather_code: 45 },
+            { city: "Roma", temperature_2m: 16, weather_code: 45 },
+            { city: "Roma", temperature_2m: 30, weather_code: 45 },
+            { city: "Roma", temperature_2m: 4, weather_code: 51 },
+            { city: "Roma", temperature_2m: 16, weather_code: 51 },
+            { city: "Roma", temperature_2m: 30, weather_code: 51 },
+            { city: "Roma", temperature_2m: 4, weather_code: 61 },
+            { city: "Roma", temperature_2m: 16, weather_code: 61 },
+            { city: "Roma", temperature_2m: 30, weather_code: 61 },
+            { city: "Roma", temperature_2m: 4, weather_code: 71 },
+            { city: "Roma", temperature_2m: 16, weather_code: 71 },
+            { city: "Roma", temperature_2m: 30, weather_code: 71 },
+            { city: "Roma", temperature_2m: 4, weather_code: 95 },
+            { city: "Roma", temperature_2m: 16, weather_code: 95 },
+            { city: "Roma", temperature_2m: 30, weather_code: 95 }
+        ];
+
+        for (const item of CASES) {
+            const params = new URLSearchParams({
+                city: item.city,
+                temperature_2m: String(item.temperature_2m),
+                weather_code: String(item.weather_code),
+                speak: "0"
+            });
+            const section = document.createElement("section");
+            section.className = "case";
+            const frame = document.createElement("iframe");
+            frame.title = item.city + " " + item.temperature_2m + "° " + item.weather_code;
+            frame.src = "/mcp_servers/weather/ui/weather.html?" + params.toString();
+            section.appendChild(frame);
+            document.body.appendChild(section);
+        }
+    </script>
+</body>
+</html>

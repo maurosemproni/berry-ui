@@ -23,10 +23,98 @@
             z-index: 2;
         }
     </style>
+    <script>
+        let mcpOpen = false;
+        let lastFaceStatus = "[STATUS: SLEEP]";
+        let latchedCommand = "";
+        let weatherTimer = null;
+
+        function setLogInput(value) {
+            const line = document.getElementById("log-input");
+            const target = document.getElementById("log-input-text");
+            if (!line || !target) return;
+            const text = String(value || "").trim();
+            target.textContent = text;
+            line.classList.toggle("has-text", text.length > 0);
+        }
+
+        function setLogStatus(text) {
+            const status = document.getElementById("log-status");
+            if (status) status.textContent = text;
+        }
+
+        window.addEventListener("message", (event) => {
+            if (event.origin !== window.location.origin) return;
+            const data = event.data || {};
+            if (data.type === "berry-log" && typeof data.status === "string") {
+                lastFaceStatus = data.status;
+                if (!mcpOpen) setLogStatus(lastFaceStatus);
+                return;
+            }
+            if (data.type === "berry-input" && !mcpOpen) setLogInput(data.text);
+        });
+
+        function readJson(url) {
+            return fetch(url, { cache: "no-store" })
+                .then((res) => res.ok ? res.json() : null)
+                .catch(() => null);
+        }
+
+        function latchCommand(command) {
+            const text = String(command || "").trim();
+            if (!mcpOpen || !text || text === latchedCommand) return;
+            latchedCommand = text;
+            setLogInput(text);
+        }
+
+        function pollMcpCommand() {
+            if (!mcpOpen || latchedCommand) return;
+            readJson("/wake-state.json?t=" + Date.now()).then((data) => {
+                if (!data) return;
+                latchCommand(data.command);
+            });
+        }
+
+        function openMcp(url, manifestUrl, duration) {
+            mcpOpen = true;
+            latchedCommand = "";
+            setLogInput("");
+            setLogStatus("SERVER MCP: WEATHER");
+            readJson(manifestUrl + "?t=" + Date.now()).then((data) => {
+                if (!mcpOpen) return;
+                const title = data && String(data.title || "").trim();
+                setLogStatus("SERVER MCP: " + (title || "WEATHER"));
+            });
+            pollMcpCommand();
+            const weatherFrame = document.getElementById("weather-frame");
+            weatherFrame.hidden = false;
+            weatherFrame.src = url;
+            if (weatherTimer) clearTimeout(weatherTimer);
+            weatherTimer = setTimeout(closeMcp, duration);
+        }
+
+        function closeMcp() {
+            weatherTimer = null;
+            mcpOpen = false;
+            const shown = latchedCommand;
+            latchedCommand = shown;
+            const weatherFrame = document.getElementById("weather-frame");
+            weatherFrame.hidden = true;
+            weatherFrame.src = "about:blank";
+            setLogStatus(lastFaceStatus);
+            setLogInput("");
+        }
+    </script>
 </head>
 <body>
     <iframe id="view-frame" src="/frontend/views/berry_face.html" title="Berry"></iframe>
     <iframe id="weather-frame" title="Meteo" hidden></iframe>
+    <div class="retro-log" aria-live="polite">
+        <div id="log-status">[STATUS: SLEEP]</div>
+        <div id="log-input">
+            <span class="log-label">[INPUT_USER]: </span><span id="log-input-text"></span><span class="log-cursor">_</span>
+        </div>
+    </div>
     <script>
         const FACE_URL = "/frontend/views/berry_face.html";
         const frame = document.getElementById("view-frame");
@@ -49,20 +137,11 @@
             }
         }
 
-        const weatherFrame = document.getElementById("weather-frame");
-        let weatherTimer = null;
         function showWeather(url, duration = 14000) {
             // #region agent log
             fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',runId:'post-fix2',hypothesisId:'D',location:'kiosk.html:showWeather',message:'pagina meteo',data:{url:String(url).slice(0,180),duration:duration},timestamp:Date.now()})}).catch(()=>{});
             // #endregion
-            weatherFrame.hidden = false;
-            weatherFrame.src = url;
-            if (weatherTimer) clearTimeout(weatherTimer);
-            weatherTimer = setTimeout(() => {
-                weatherTimer = null;
-                weatherFrame.hidden = true;
-                weatherFrame.src = "about:blank";
-            }, duration);
+            openMcp(url, "/mcp_servers/weather/ui_manifest.json", duration);
         }
 
         let seenWeatherSeq = null;
@@ -94,6 +173,7 @@
         }
         setInterval(watchWeather, 500);
         watchWeather();
+        setInterval(pollMcpCommand, 500);
     </script>
 </body>
 </html>

@@ -82,23 +82,35 @@ function quoteFor(stateName) {
     return quotes[Math.floor(Math.random() * quotes.length)];
 }
 
+function logStatusText(stateName) {
+    const label = stateName === 'condescending' ? 'HAPPY' : String(stateName).toUpperCase();
+    return '[STATUS: ' + label + '] - "' + quoteFor(stateName) + '"';
+}
+
+function publishLog(message) {
+    if (window.parent === window) return;
+    window.parent.postMessage(message, window.location.origin);
+}
+
 function setBerryState(stateName) {
     face.className = 'face-container pixel-art state-' + stateName;
     if (stateName === lastLogState) return;
     lastLogState = stateName;
+    const text = logStatusText(stateName);
     const status = document.getElementById('log-status');
-    if (!status) return;
-    const label = stateName === 'condescending' ? 'HAPPY' : String(stateName).toUpperCase();
-    status.textContent = '[STATUS: ' + label + '] - "' + quoteFor(stateName) + '"';
+    if (status) status.textContent = text;
+    publishLog({ type: 'berry-log', status: text });
 }
 
 function updateTranscription(testo) {
+    const value = String(testo || '').trim();
     const line = document.getElementById('log-input');
     const target = document.getElementById('log-input-text');
-    if (!line || !target) return;
-    const value = String(testo || '').trim();
-    target.textContent = value;
-    line.classList.toggle('has-text', value.length > 0);
+    if (line && target) {
+        target.textContent = value;
+        line.classList.toggle('has-text', value.length > 0);
+    }
+    publishLog({ type: 'berry-input', text: value });
 }
 window.updateTranscription = updateTranscription;
 
