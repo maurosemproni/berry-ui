@@ -1,6 +1,7 @@
 config.js
 wake-state.json
 weather-state.json
+playback-state.json
 wake/.venv/
 mcp_servers/weather/.venv/
 wake/models/

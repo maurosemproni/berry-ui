@@ -22,6 +22,7 @@ from urllib.request import urlopen, urlretrieve
 ROOT = Path(__file__).resolve().parent.parent
 WAKE_DIR = Path(__file__).resolve().parent
 STATE_PATH = ROOT / "wake-state.json"
+PLAYBACK_PATH = ROOT / "playback-state.json"
 CONFIG_PATH = ROOT / "config.js"
 MODEL_NAME = "vosk-model-small-en-us-0.15"
 MODEL_DIR = WAKE_DIR / "models" / MODEL_NAME
@@ -35,10 +36,14 @@ GATEWAY_PORT = 18789
 GATEWAY_ORIGIN = "http://127.0.0.1:8765"
 SESSION_KEY = "agent:main:main"
 # Il modello piccolo confonde la vocale: «berry» esce spesso come barry o bury.
-# Sul C-Media le prove del 16 nov 2026 sono uscite «a daddy», «a badly», «a bad name».
+# Sul C-Media le prove del 16 nov 2026 sono uscite «a daddy», «a badly»,
+# «a bad name», «a battery», «he badly», «behave badly», «a than me»,
+# «he then me» e «in barely».
 WAKE_ALIASES = (
     "hey berry", "hey barry", "hey bury",
-    "a daddy", "a badly", "a bad name",
+    "a daddy", "a badly", "a bad name", "a battery",
+    "he badly", "behave badly", "a than me", "he then me",
+    "in barely",
 )
 WAKE_PREFIXES = WAKE_ALIASES + ("ehi berry", "hey beri", "e berry", "ei berry")
 TRIGGERS = ["hey berry"]
@@ -82,6 +87,12 @@ def find_wake(text):
 
 def contains_wake(text):
     return find_wake(text) is not None
+
+
+def short_wake(text):
+    """La sola wake word, il 16 nov 2026, è sempre uscita in due o tre parole."""
+    count = len(normalize_phrase(text).split())
+    return 2 <= count <= 3
 
 
 def command_after_wake(text):
@@ -514,6 +525,24 @@ class Spotter:
         self.parts = []
         self.backlog = bytearray()
         self.rec = KaldiRecognizer(model, SAMPLE_RATE)
+        self._heard_playback = False
+
+    def _playback_speaking(self):
+        try:
+            data = json.loads(PLAYBACK_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        speaking = bool(data.get("speaking"))
+        if speaking:
+            if not self._heard_playback:
+                self._heard_playback = True
+            return True
+        if self._heard_playback:
+            self._heard_playback = False
+            self.parts = []
+            self.backlog.clear()
+            self.rec = self._recognizer_cls(self.model, SAMPLE_RATE)
+        return False
 
     def _push_backlog(self, pcm):
         self.backlog.extend(pcm)
@@ -543,7 +572,7 @@ class Spotter:
             self.rec = self._recognizer_cls(self.model, SAMPLE_RATE)
             write_state("listening")
         elif mode == "capture":
-            self._use_italian(replay=True)
+            self._use_italian(replay=False)
             write_state("capturing")
         elif mode == "followup":
             self._use_italian(replay=False)
@@ -576,6 +605,8 @@ class Spotter:
 
     def feed(self, pcm, token):
         now = time.monotonic()
+        if self.mode == "listen" and self._playback_speaking():
+            return
         loud = rms(pcm) >= SILENCE_RMS
         if self.mode == "listen":
             self._push_backlog(pcm)
@@ -599,7 +630,9 @@ class Spotter:
         ended = self.accept(pcm)
 
         if self.mode == "listen":
-            if contains_wake(self.current_text()):
+            text = self.current_text()
+            heard = contains_wake(text) or (ended and short_wake(text))
+            if heard:
                 log("wake word riconosciuta")
                 self.enter("capture")
                 self.speech_seen = loud

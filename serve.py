@@ -36,10 +36,31 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
+        if path == "/playback":
+            self._playback()
+            return
         if path != "/tts":
             self.send_error(404)
             return
         self._speak()
+
+    def _playback(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > 256:
+            self.send_error(400, "corpo non valido")
+            return
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            speaking = bool(body.get("speaking"))
+        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+            self.send_error(400, "json non valido")
+            return
+        path = Path(ROOT) / "playback-state.json"
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps({"speaking": speaking}) + "\n", encoding="utf-8")
+        tmp.replace(path)
+        self.send_response(204)
+        self.end_headers()
 
     def _speak(self):
         length = int(self.headers.get("Content-Length") or 0)

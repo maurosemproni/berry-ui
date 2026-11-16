@@ -209,12 +209,21 @@ function stopVoice() {
 }
 
 function finishVoice(generation, url) {
+    publishPlayback(false);
     if (url) URL.revokeObjectURL(url);
     if (generation !== voiceGen) return;
     voicePending = false;
     voicePlaying = false;
     voiceAudio = null;
     applyGatewayPhase('idle');
+}
+
+function publishPlayback(speaking) {
+    fetch('/playback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speaking: !!speaking })
+    }).catch(() => {});
 }
 
 function weatherFromReply(text) {
@@ -261,6 +270,7 @@ function speakReply(text) {
                 if (generation !== voiceGen) return;
                 voicePending = false;
                 voicePlaying = true;
+                publishPlayback(true);
                 applyGatewayPhase('speaking');
             };
             audio.onended = () => finishVoice(generation, url);
