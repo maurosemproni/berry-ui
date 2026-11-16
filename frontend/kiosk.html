@@ -121,9 +121,6 @@
         let returnTimer = null;
 
         function switchView(url, duration = null) {
-            // #region agent log
-            fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'D',location:'kiosk.html:switchView',message:'cambio schermata',data:{url:String(url).slice(0,180),duration:duration},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             if (returnTimer) {
                 clearTimeout(returnTimer);
                 returnTimer = null;
@@ -138,9 +135,6 @@
         }
 
         function showWeather(url, duration = 14000) {
-            // #region agent log
-            fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',runId:'post-fix2',hypothesisId:'D',location:'kiosk.html:showWeather',message:'pagina meteo',data:{url:String(url).slice(0,180),duration:duration},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             openMcp(url, "/mcp_servers/weather/ui_manifest.json", duration);
         }
 
@@ -163,9 +157,6 @@
                         temperature_2m: String(data.temperature_2m),
                         weather_code: String(data.weather_code)
                     });
-                    // #region agent log
-                    fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',runId:'post-fix',hypothesisId:'D',location:'kiosk.html:watchWeather',message:'meteo nuovo',data:{seq:data.seq,city:data.city,temperature:data.temperature_2m,code:data.weather_code},timestamp:Date.now()})}).catch(()=>{});
-                    // #endregion
                     params.set("speak", "0");
                     showWeather("/mcp_servers/weather/ui/weather.html?" + params.toString(), 14000);
                 })

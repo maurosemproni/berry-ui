@@ -35,7 +35,11 @@ GATEWAY_PORT = 18789
 GATEWAY_ORIGIN = "http://127.0.0.1:8765"
 SESSION_KEY = "agent:main:main"
 # Il modello piccolo confonde la vocale: «berry» esce spesso come barry o bury.
-WAKE_ALIASES = ("hey berry", "hey barry", "hey bury")
+# Sul C-Media le prove del 16 nov 2026 sono uscite «a daddy», «a badly», «a bad name».
+WAKE_ALIASES = (
+    "hey berry", "hey barry", "hey bury",
+    "a daddy", "a badly", "a bad name",
+)
 WAKE_PREFIXES = WAKE_ALIASES + ("ehi berry", "hey beri", "e berry", "ei berry")
 TRIGGERS = ["hey berry"]
 
@@ -403,15 +407,6 @@ def _publish_weather(message):
             "temperature_2m": current.get("temperature_2m"),
             "weather_code": current.get("weather_code"),
         })
-        # #region agent log
-        with open("/home/mauro/berry-ui/.cursor/debug-6358b3.log", "a", encoding="utf-8") as logf:
-            logf.write(json.dumps({
-                "sessionId": "6358b3", "runId": "post-fix2", "hypothesisId": "F",
-                "location": "listen.py:publish_weather", "message": "meteo pubblicato",
-                "data": {"city": place.get("name") or city, "code": current.get("weather_code")},
-                "timestamp": int(time.time() * 1000),
-            }) + "\n")
-        # #endregion
     except Exception as exc:
         log(f"meteo non pubblicato: {exc}")
 

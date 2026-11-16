@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="/frontend/css/global_crt.css">
     <style>
         body.weather {
+            --icon-amber: #ffb000;
+            --icon-amber-glow: rgba(255, 176, 0, 0.45);
+            --icon-cyan: #00f0ff;
+            --icon-cyan-glow: rgba(0, 240, 255, 0.45);
+            --icon-fog: #d5dbe3;
             flex-direction: column;
             gap: 14px;
             padding: 18px 16px 22px;
@@ -21,17 +26,25 @@
             --shadow-color: rgba(0, 240, 255, 0.25);
             background-color: var(--screen-bg);
         }
-        body.theme-hot {
+        body.theme-mild {
             --pixel-color: #ffb000;
             --pixel-bg: #181000;
             --screen-bg: #181000;
             --shadow-color: rgba(255, 176, 0, 0.25);
             background-color: var(--screen-bg);
         }
+        body.theme-hot {
+            --pixel-color: #ff3b1f;
+            --pixel-bg: #1a0806;
+            --screen-bg: #1a0806;
+            --shadow-color: rgba(255, 59, 31, 0.25);
+            background-color: var(--screen-bg);
+        }
         .sky {
             position: relative;
             width: 180px;
             height: 120px;
+            margin-bottom: 18px;
             z-index: 1;
         }
         .sun, .rays, .cloud, .drops, .flakes, .fog, .bolt {
@@ -44,8 +57,8 @@
             left: 73px;
             top: 25px;
             border-radius: 12px;
-            background: var(--pixel-color);
-            box-shadow: 0 0 16px var(--shadow-color);
+            background: var(--icon-amber);
+            box-shadow: 0 0 16px var(--icon-amber-glow);
         }
         .rays {
             width: 72px;
@@ -59,8 +72,8 @@
             top: 33px;
             width: 6px;
             height: 6px;
-            background: var(--pixel-color);
-            box-shadow: 0 0 6px var(--shadow-color);
+            background: var(--icon-amber);
+            box-shadow: 0 0 6px var(--icon-amber-glow);
             animation: orbit 8s linear infinite;
         }
         .rays span:nth-child(2) { animation-delay: -1s; }
@@ -75,11 +88,21 @@
             height: 18px;
             left: 58px;
             top: 58px;
-            background: var(--pixel-color);
+            background: var(--icon-cyan);
             box-shadow:
-                16px -12px 0 var(--pixel-color),
-                34px 0 0 var(--pixel-color),
-                8px 0 0 var(--pixel-color);
+                16px -12px 0 var(--icon-cyan),
+                34px 0 0 var(--icon-cyan),
+                8px 0 0 var(--icon-cyan);
+        }
+        .cloud::before {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 24px;
+            left: 24px;
+            top: -22px;
+            background: var(--icon-cyan);
+            box-shadow: 0 0 8px var(--icon-cyan-glow);
         }
         .drops, .flakes {
             left: 48px;
@@ -90,8 +113,8 @@
         .drops span, .flakes span {
             position: absolute;
             top: 0;
-            background: var(--pixel-color);
-            box-shadow: 0 0 6px var(--shadow-color);
+            background: var(--icon-cyan);
+            box-shadow: 0 0 6px var(--icon-cyan-glow);
         }
         .drops span {
             width: 3px;
@@ -121,8 +144,8 @@
             display: block;
             height: 8px;
             margin: 10px 0;
-            background: var(--pixel-color);
-            opacity: 0.35;
+            background: var(--icon-fog);
+            opacity: 0.7;
             animation: drift 3.5s ease-in-out infinite alternate;
         }
         .fog span:nth-child(2) { margin-left: 18px; animation-delay: 0.4s; }
@@ -132,11 +155,11 @@
             height: 8px;
             left: 86px;
             top: 78px;
-            background: var(--pixel-color);
+            background: var(--icon-amber);
             box-shadow:
-                8px 8px 0 var(--pixel-color),
-                2px 16px 0 var(--pixel-color),
-                10px 24px 0 var(--pixel-color);
+                8px 8px 0 var(--icon-amber),
+                2px 16px 0 var(--icon-amber),
+                10px 24px 0 var(--icon-amber);
         }
         .wx-sun .sun, .wx-sun .rays,
         .wx-suncloud .sun, .wx-suncloud .rays, .wx-suncloud .cloud,

@@ -204,9 +204,6 @@ function weatherFromReply(text) {
 
 function speakReply(text) {
     const spoken = cleanSpeech(text);
-    // #region agent log
-    fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'B',location:'berry.js:speakReply',message:'testo pronto per la voce',data:{rawLen:(text||'').length,spokenLen:spoken.length,hasFinal:/<final>/i.test(text||''),preview:spoken.slice(0,120)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!spoken) {
         if (!voiceBusy()) applyGatewayPhase('idle');
         return;
@@ -221,9 +218,6 @@ function speakReply(text) {
         body: JSON.stringify({ text: spoken })
     })
         .then((res) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'C',location:'berry.js:tts',message:'risposta sintesi',data:{status:res.status,ok:res.ok},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             if (!res.ok) throw new Error('tts');
             return res.blob();
         })
@@ -240,10 +234,7 @@ function speakReply(text) {
             };
             audio.onended = () => finishVoice(generation, url);
             audio.onerror = () => finishVoice(generation, url);
-            return audio.play().catch((err) => {
-                // #region agent log
-                fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'C',location:'berry.js:play',message:'audio non partito',data:{name:err&&err.name},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
+            return audio.play().catch(() => {
                 finishVoice(generation, url);
             });
         })
@@ -308,9 +299,6 @@ function applyGatewayMessage(data) {
     if (data.type === 'event' && data.event === 'agent' && payload) {
         if (!forMainSession(payload)) return;
         const phase = payload.data && payload.data.phase;
-        // #region agent log
-        if (payload.stream === 'tool' || (payload.stream === 'lifecycle' && phase === 'end')) fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'E',location:'berry.js:agent',message:'evento agente',data:{stream:payload.stream,phase:phase,name:(payload.data&&(payload.data.name||payload.data.toolName))||null,hasParentSwitch:typeof (window.parent&&window.parent.switchView)==='function'},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if (payload.stream === 'lifecycle' && phase === 'start') applyGatewayPhase('thinking');
         else if (payload.stream === 'lifecycle' && phase === 'error') {
             stopVoice();
@@ -337,9 +325,6 @@ function applyGatewayMessage(data) {
                 });
                 window.parent.showWeather("/mcp_servers/weather/ui/weather.html?" + params.toString(), 14000);
             }
-            // #region agent log
-            fetch('http://127.0.0.1:7522/ingest/e7dde95e-e690-4ab5-b97f-11e91124adaf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6358b3'},body:JSON.stringify({sessionId:'6358b3',hypothesisId:'A',location:'berry.js:chat-final',message:'chat finale',data:{sessionKey:payload.sessionKey||null,textLen:text.length,preview:text.slice(0,140)},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             if (text) speakReply(text);
             else if (!voiceBusy()) applyGatewayPhase('idle');
         } else if (payload.state === 'aborted' || payload.state === 'error') {
