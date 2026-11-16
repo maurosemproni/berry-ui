@@ -92,6 +92,36 @@ function publishLog(message) {
     window.parent.postMessage(message, window.location.origin);
 }
 
+let faceGlitching = false;
+
+function playFaceGlitch() {
+    if (faceGlitching) return;
+    faceGlitching = true;
+    let settled = false;
+    const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(safety);
+        face.removeEventListener('animationend', onEnd);
+        document.body.classList.remove('face-glitch');
+        faceGlitching = false;
+        publishLog({ type: 'berry-glitch-done' });
+    };
+    const onEnd = (event) => {
+        if (event.target !== face || event.animationName !== 'faceGlitch') return;
+        finish();
+    };
+    const safety = setTimeout(finish, 500);
+    face.addEventListener('animationend', onEnd);
+    document.body.classList.add('face-glitch');
+}
+
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    if (!event.data || event.data.type !== 'berry-glitch') return;
+    playFaceGlitch();
+});
+
 function setBerryState(stateName) {
     face.className = 'face-container pixel-art state-' + stateName;
     if (stateName === lastLogState) return;
@@ -212,15 +242,16 @@ function speakReply(text) {
     const generation = voiceGen;
     voicePending = true;
     applyGatewayPhase('thinking');
-    fetch('/tts', {
+    const requestSpeech = (attempt) => fetch('/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: spoken })
-    })
-        .then((res) => {
-            if (!res.ok) throw new Error('tts');
-            return res.blob();
-        })
+    }).then((res) => {
+        if (!res.ok && attempt < 2) return requestSpeech(attempt + 1);
+        if (!res.ok) throw new Error('tts');
+        return res.blob();
+    });
+    requestSpeech(1)
         .then((blob) => {
             if (generation !== voiceGen) return;
             const url = URL.createObjectURL(blob);

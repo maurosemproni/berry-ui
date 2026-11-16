@@ -26,8 +26,57 @@
     <script>
         let mcpOpen = false;
         let lastFaceStatus = "[STATUS: SLEEP]";
+        let lastStatusLabel = "SLEEP";
         let latchedCommand = "";
         let weatherTimer = null;
+        let glitchToken = 0;
+        let mcpReveal = null;
+
+        function postFaceGlitch() {
+            const frame = document.getElementById("view-frame");
+            if (frame && frame.contentWindow) {
+                frame.contentWindow.postMessage({ type: "berry-glitch" }, window.location.origin);
+            }
+        }
+
+        function whenFaceGlitchDone(done) {
+            const token = ++glitchToken;
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                window.removeEventListener("message", onGlitchDone);
+                clearTimeout(giveUp);
+                if (token !== glitchToken) return;
+                done();
+            };
+            const onGlitchDone = (event) => {
+                if (event.origin !== window.location.origin) return;
+                const data = event.data || {};
+                if (data.type === "berry-glitch-done") finish();
+            };
+            window.addEventListener("message", onGlitchDone);
+            const giveUp = setTimeout(finish, 800);
+            postFaceGlitch();
+        }
+
+        function showMcpFrame(url, manifestUrl, duration) {
+            const weatherFrame = document.getElementById("weather-frame");
+            mcpOpen = true;
+            latchedCommand = "";
+            setLogInput("");
+            setLogStatus("SERVER MCP: WEATHER");
+            readJson(manifestUrl + "?t=" + Date.now()).then((data) => {
+                if (!mcpOpen) return;
+                const title = data && String(data.title || "").trim();
+                setLogStatus("SERVER MCP: " + (title || "WEATHER"));
+            });
+            pollMcpCommand();
+            weatherFrame.hidden = false;
+            weatherFrame.src = url;
+            if (weatherTimer) clearTimeout(weatherTimer);
+            weatherTimer = setTimeout(closeMcp, duration);
+        }
 
         function setLogInput(value) {
             const line = document.getElementById("log-input");
@@ -47,8 +96,13 @@
             if (event.origin !== window.location.origin) return;
             const data = event.data || {};
             if (data.type === "berry-log" && typeof data.status === "string") {
+                const labelMatch = /^\[STATUS: ([A-Z]+)\]/.exec(data.status);
+                const label = labelMatch ? labelMatch[1] : "";
+                const replyDone = label === "IDLE" && (lastStatusLabel === "THINKING" || lastStatusLabel === "SPEAKING" || lastStatusLabel === "HAPPY");
                 lastFaceStatus = data.status;
                 if (!mcpOpen) setLogStatus(lastFaceStatus);
+                if (!mcpOpen && replyDone) setLogInput("");
+                lastStatusLabel = label;
                 return;
             }
             if (data.type === "berry-input" && !mcpOpen) setLogInput(data.text);
@@ -67,45 +121,64 @@
             setLogInput(text);
         }
 
+        let commandReady = false;
+        let seenCommandAt = 0;
         function pollMcpCommand() {
-            if (!mcpOpen || latchedCommand) return;
             readJson("/wake-state.json?t=" + Date.now()).then((data) => {
                 if (!data) return;
-                latchCommand(data.command);
+                const command = String(data.command || "").trim();
+                const at = typeof data.command_at === "number" ? data.command_at : 0;
+                if (!commandReady) {
+                    commandReady = true;
+                    seenCommandAt = at;
+                    return;
+                }
+                if (mcpOpen) {
+                    if (at !== seenCommandAt) seenCommandAt = at;
+                    latchCommand(command);
+                    return;
+                }
+                if (!command || at === seenCommandAt) return;
+                seenCommandAt = at;
+                setLogInput(command);
             });
         }
 
         function openMcp(url, manifestUrl, duration) {
             const weatherFrame = document.getElementById("weather-frame");
             const already = mcpOpen && weatherFrame && !weatherFrame.hidden;
-            if (!already) {
-                mcpOpen = true;
-                latchedCommand = "";
-                setLogInput("");
-                setLogStatus("SERVER MCP: WEATHER");
-                readJson(manifestUrl + "?t=" + Date.now()).then((data) => {
-                    if (!mcpOpen) return;
-                    const title = data && String(data.title || "").trim();
-                    setLogStatus("SERVER MCP: " + (title || "WEATHER"));
-                });
-                pollMcpCommand();
-                weatherFrame.hidden = false;
-                weatherFrame.src = url;
+            if (already) {
+                if (weatherTimer) clearTimeout(weatherTimer);
+                weatherTimer = setTimeout(closeMcp, duration);
+                return;
             }
-            if (weatherTimer) clearTimeout(weatherTimer);
-            weatherTimer = setTimeout(closeMcp, duration);
+            if (mcpReveal) {
+                mcpReveal.url = url;
+                mcpReveal.manifestUrl = manifestUrl;
+                mcpReveal.duration = duration;
+                return;
+            }
+            mcpReveal = { url: url, manifestUrl: manifestUrl, duration: duration };
+            whenFaceGlitchDone(() => {
+                const pending = mcpReveal;
+                mcpReveal = null;
+                if (!pending) return;
+                showMcpFrame(pending.url, pending.manifestUrl, pending.duration);
+            });
         }
 
         function closeMcp() {
+            if (weatherTimer) clearTimeout(weatherTimer);
             weatherTimer = null;
+            mcpReveal = null;
+            glitchToken += 1;
             mcpOpen = false;
-            const shown = latchedCommand;
-            latchedCommand = shown;
             const weatherFrame = document.getElementById("weather-frame");
             weatherFrame.hidden = true;
             weatherFrame.src = "about:blank";
             setLogStatus(lastFaceStatus);
             setLogInput("");
+            postFaceGlitch();
         }
     </script>
 </head>

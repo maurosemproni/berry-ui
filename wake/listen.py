@@ -118,14 +118,20 @@ def rms(pcm):
 
 _last_state = "idle"
 _last_command = ""
+_last_command_at = 0
 
 
 def write_state(state, command=None):
-    global _last_state, _last_command
+    global _last_state, _last_command, _last_command_at
     _last_state = state
     if command is not None:
         _last_command = command
-    payload = json.dumps({"state": _last_state, "command": _last_command}) + "\n"
+        _last_command_at = int(time.time() * 1000)
+    payload = json.dumps({
+        "state": _last_state,
+        "command": _last_command,
+        "command_at": _last_command_at,
+    }) + "\n"
     tmp = STATE_PATH.with_suffix(".json.tmp")
     tmp.write_text(payload, encoding="utf-8")
     os.replace(tmp, STATE_PATH)
