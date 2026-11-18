@@ -214,6 +214,10 @@
             openMcp(url, "/mcp_servers/weather/ui_manifest.json", duration);
         }
 
+        function showTelemetry(url, duration = 20000) {
+            openMcp(url, "/mcp_servers/telemetry/ui_manifest.json", duration);
+        }
+
         let seenWeatherSeq = null;
         let weatherReady = false;
         function watchWeather() {
@@ -240,6 +244,27 @@
         }
         setInterval(watchWeather, 500);
         watchWeather();
+
+        let seenTelemetrySeq = null;
+        let telemetryReady = false;
+        function watchTelemetry() {
+            fetch("/telemetry-state.json?t=" + Date.now(), { cache: "no-store" })
+                .then((res) => res.ok ? res.json() : null)
+                .then((data) => {
+                    const seq = data && typeof data.seq === "number" ? data.seq : null;
+                    if (!telemetryReady) {
+                        telemetryReady = true;
+                        seenTelemetrySeq = seq;
+                        return;
+                    }
+                    if (seq === null || seq === seenTelemetrySeq) return;
+                    seenTelemetrySeq = seq;
+                    showTelemetry("/mcp_servers/telemetry/ui/telemetry.html", 20000);
+                })
+                .catch(() => {});
+        }
+        setInterval(watchTelemetry, 500);
+        watchTelemetry();
         setInterval(pollMcpCommand, 500);
     </script>
 </body>

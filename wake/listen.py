@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parent.parent
 WAKE_DIR = Path(__file__).resolve().parent
 STATE_PATH = ROOT / "wake-state.json"
 PLAYBACK_PATH = ROOT / "playback-state.json"
+TURN_PATH = Path("/tmp/berry_turn.json")
+TELEMETRY_STATE = ROOT / "telemetry-state.json"
 CONFIG_PATH = ROOT / "config.js"
 MODEL_NAME = "vosk-model-small-en-us-0.15"
 MODEL_DIR = WAKE_DIR / "models" / MODEL_NAME
@@ -46,6 +48,10 @@ WAKE_ALIASES = (
     "in barely",
 )
 WAKE_PREFIXES = WAKE_ALIASES + ("ehi berry", "hey beri", "e berry", "ei berry")
+# Il 18 nov 2026 «hey berry» è uscito anche «hey manny», «hey badly»,
+# «hey madly» e «hey bernie». Non vale qualsiasi frase di due o tre parole:
+# «what's that» era «basta».
+_HEY_MISHEAR = re.compile(r" (hey) ([bm][a-z]{2,8}(?:ie|y)) ")
 TRIGGERS = ["hey berry"]
 
 SAMPLE_RATE = 16000
@@ -82,17 +88,14 @@ def find_wake(text):
         at = padded.find(f" {alias} ")
         if at >= 0 and (found is None or at < found[0]):
             found = (at, alias)
+    mishear = _HEY_MISHEAR.search(padded)
+    if mishear and (found is None or mishear.start() < found[0]):
+        found = (mishear.start(), f"{mishear.group(1)} {mishear.group(2)}")
     return found
 
 
 def contains_wake(text):
     return find_wake(text) is not None
-
-
-def short_wake(text):
-    """La sola wake word, il 16 nov 2026, è sempre uscita in due o tre parole."""
-    count = len(normalize_phrase(text).split())
-    return 2 <= count <= 3
 
 
 def command_after_wake(text):
@@ -380,6 +383,7 @@ WEATHER_FILLER = {
     "il", "la", "che", "fa", "le", "del", "della", "un", "una",
 }
 WEATHER_STATE = ROOT / "weather-state.json"
+TELEMETRY_WORDS = re.compile(r"telemetria", re.IGNORECASE)
 
 
 def weather_city(message):
@@ -439,7 +443,27 @@ def publish_weather(message):
     threading.Thread(target=_publish_weather, args=(message,), daemon=True).start()
 
 
-def send_command(token, message):
+def publish_telemetry(message):
+    if not TELEMETRY_WORDS.search(message or ""):
+        return
+    report = {"seq": time.time_ns()}
+    tmp = TELEMETRY_STATE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(report), encoding="utf-8")
+    tmp.replace(TELEMETRY_STATE)
+
+
+def write_turn(wake_word_ms, stt_ms):
+    payload = {
+        "wake_word_ms": max(0, int(wake_word_ms)),
+        "stt_ms": max(0, int(stt_ms)),
+        "sent_at": time.time(),
+    }
+    tmp = TURN_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    tmp.replace(TURN_PATH)
+
+
+def send_command(token, message, wake_word_ms=0, stt_ms=0):
     client, payload = open_gateway(token)
     try:
         scopes = ((payload.get("auth") or {}).get("scopes")) or []
@@ -455,8 +479,10 @@ def send_command(token, message):
     if not response.get("ok"):
         raise ConnectionError(f"chat.send rifiutato: {response.get('error') or response}")
     log(f"comando inviato: {message}")
+    write_turn(wake_word_ms, stt_ms)
     write_state(_last_state, message)
     publish_weather(message)
+    publish_telemetry(message)
 
 
 def ensure_vosk(name, url):
@@ -526,6 +552,11 @@ class Spotter:
         self.backlog = bytearray()
         self.rec = KaldiRecognizer(model, SAMPLE_RATE)
         self._heard_playback = False
+        self.wake_started_at = None
+        self.wake_word_ms = 0
+        self.stt_started_at = None
+        self.stt_silence_at = None
+        self.stt_ms = 0
 
     def _playback_speaking(self):
         try:
@@ -542,6 +573,7 @@ class Spotter:
             self.parts = []
             self.backlog.clear()
             self.rec = self._recognizer_cls(self.model, SAMPLE_RATE)
+            self.wake_started_at = None
         return False
 
     def _push_backlog(self, pcm):
@@ -570,12 +602,17 @@ class Spotter:
             self.parts = []
             self.backlog.clear()
             self.rec = self._recognizer_cls(self.model, SAMPLE_RATE)
+            self.wake_started_at = None
             write_state("listening")
         elif mode == "capture":
             self._use_italian(replay=False)
+            self.stt_started_at = time.time()
+            self.stt_silence_at = None
             write_state("capturing")
         elif mode == "followup":
             self._use_italian(replay=False)
+            self.stt_started_at = time.time()
+            self.stt_silence_at = None
             write_state("capturing")
         elif mode == "cooldown":
             write_state("listening")
@@ -630,21 +667,27 @@ class Spotter:
         ended = self.accept(pcm)
 
         if self.mode == "listen":
+            if loud and self.wake_started_at is None:
+                self.wake_started_at = time.time()
             text = self.current_text()
-            heard = contains_wake(text) or (ended and short_wake(text))
-            if heard:
+            if contains_wake(text):
+                started = self.wake_started_at or time.time()
+                self.wake_word_ms = max(0, int((time.time() - started) * 1000))
                 log("wake word riconosciuta")
                 self.enter("capture")
                 self.speech_seen = loud
             elif ended:
                 self.parts = []
+                self.wake_started_at = None
             return
 
         if loud:
             self.silence_since = None
+            self.stt_silence_at = None
             self.speech_seen = True
         elif self.silence_since is None:
             self.silence_since = now
+            self.stt_silence_at = time.time()
         elif now - self.silence_since >= SILENCE_S or now - self.mode_since >= MAX_CAPTURE_S:
             self.finish(token)
             return
@@ -654,6 +697,9 @@ class Spotter:
     def finish(self, token):
         text = self.flush_text()
         command = strip_wake_prefix(text)
+        end = self.stt_silence_at or time.time()
+        started = self.stt_started_at or end
+        self.stt_ms = max(0, int((end - started) * 1000))
         log(f"trascritto: {text or '(vuoto)'}")
         if not command:
             if self.mode == "followup":
@@ -664,7 +710,7 @@ class Spotter:
                 self.enter("followup")
             return
         try:
-            send_command(token, command)
+            send_command(token, command, self.wake_word_ms, self.stt_ms)
         except (OSError, ConnectionError, TimeoutError, json.JSONDecodeError) as exc:
             log(f"invio non riuscito: {exc}")
         self.enter("cooldown")
@@ -743,6 +789,13 @@ def run_phrase_tests():
         ("they said hey berry please stop", "please stop", True),
         ("hey barry what time is it", "what time is it", True),
         ("hey ber", None, False),
+        ("hey bernie", "", True),
+        ("hey manny dimmi ciao", "dimmi ciao", True),
+        ("hey badly", "", True),
+        ("hey madly", "", True),
+        ("what's that", None, False),
+        ("pasta", None, False),
+        ("boston", None, False),
     ]
     failed = 0
     for text, expected, wake in cases:

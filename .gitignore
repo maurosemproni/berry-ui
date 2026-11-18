@@ -2,8 +2,10 @@ config.js
 wake-state.json
 weather-state.json
 playback-state.json
+telemetry-state.json
 wake/.venv/
 mcp_servers/weather/.venv/
+mcp_servers/telemetry/.venv/
 wake/models/
 node_modules/
 __pycache__/

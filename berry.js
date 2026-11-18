@@ -227,7 +227,9 @@ function publishPlayback(speaking) {
 }
 
 function weatherFromReply(text) {
-    const tempMatch = String(text || "").match(/(\d+(?:[.,]\d+)?)\s*gradi/i);
+    const source = String(text || "");
+    if (/cpu|processore|silicio/i.test(source)) return null;
+    const tempMatch = source.match(/(\d+(?:[.,]\d+)?)\s*gradi/i);
     if (!tempMatch || !/meteo|prevision|cielo|temperatura|coperto|piogg|neve|temporale|sereno|sole/i.test(text)) return null;
     const quoted = text.match(/"([A-Za-zÀ-ÿ]{3,})"/);
     const city = /\bRoma\b/i.test(text) ? "Roma" : (quoted ? quoted[1] : "Roma");
@@ -271,6 +273,7 @@ function speakReply(text) {
                 voicePending = false;
                 voicePlaying = true;
                 publishPlayback(true);
+                fetch('/reply-latency', { method: 'POST' }).catch(() => {});
                 applyGatewayPhase('speaking');
             };
             audio.onended = () => finishVoice(generation, url);
@@ -365,6 +368,8 @@ function applyGatewayMessage(data) {
                     speak: "0"
                 });
                 window.parent.showWeather("/mcp_servers/weather/ui/weather.html?" + params.toString(), 14000);
+            } else if (/cpu|processore|silicio/i.test(text || "") && window.parent && typeof window.parent.showTelemetry === "function") {
+                window.parent.showTelemetry("/mcp_servers/telemetry/ui/telemetry.html", 20000);
             }
             if (text) speakReply(text);
             else if (!voiceBusy()) applyGatewayPhase('idle');
